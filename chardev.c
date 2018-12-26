@@ -26,9 +26,9 @@ static ssize_t device_read( struct file*, char*, size_t, loff_t*);
 static ssize_t device_write( struct file*, const char*, size_t, loff_t*);
 
 static int Major		= 0;		//Major number assigned to device
-static int device_open 	= 0;		//Device open flag, prevents multiple access to device
+static int dev_open 	= 0;		//Device open flag, prevents multiple access to device
 static char msg[BUF_LEN];			//msg buffer to device
-static *msg_ptr;
+static char *msg_ptr;
 
 
 
@@ -67,12 +67,8 @@ int init_module(void)
 
 void cleanup_module(void)
 {
-	int ret = unregister_chrdev(Major, DEVICE_NAME);
-	if( ret < 0)
-	{
-		printk( KERN_ALERT "Error: failed unregister_chrdev: %d\n", ret);
-	}
-
+	ret = unregister_chrdev(Major, DEVICE_NAME);
+	printk( KERN_INFO "chardev module unloaded\n");
 }
 
 /*
@@ -85,10 +81,10 @@ static int device_open( struct inode* inode, struct file* file)
 	static int counter = 0;
 	
 
-	if( device_open)
+	if( dev_open)
 		return -EBUSY;
 
-	++device_open;
+	++dev_open;
 	sprintf(msg, "char dev read, count: %d\n", counter);
 	++counter;
 	msg_ptr = msg;
@@ -104,7 +100,7 @@ static int device_open( struct inode* inode, struct file* file)
 static int device_release( struct inode* inode, struct file* file)
 {
 
-	--device_open;	
+	--dev_open;	
 
 	//Decrement usage count. Otherwise if file opened you'll never get rid of the module.
 	module_put(THIS_MODULE);
@@ -114,7 +110,7 @@ static int device_release( struct inode* inode, struct file* file)
 
 
 //Called when a process has the dev file opened, attempts reading from it
-static ssize_t device_read( struct file* file_ptr, char* buffer, size_t len, loff_t* offset)
+static ssize_t device_read( struct file* file_ptr, char* buf, size_t len, loff_t* offset)
 {
 	int bytes_read = 0;
 
@@ -138,7 +134,7 @@ static ssize_t device_read( struct file* file_ptr, char* buffer, size_t len, lof
 
 
 
-static ssize_t device_write( struct file*, const char*, size_t, loff_t*)
+static ssize_t device_write( struct file* file_ptr, const char* buf, size_t len, loff_t* offset)
 {
 	printk( KERN_ALERT "Device write not supported\n");
 	return -EINVAL;
